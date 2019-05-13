@@ -3,11 +3,11 @@
     "dependencies": [
         {
             "name": "puppetlabs/apache",
-            "version_requirement": ">=3.0.0"
+            "version_requirement": ">=1.0.0"
         },
         {
             "name": "puppetlabs/inifile",
-            "version_requirement": ">=2.0.0 <3.0.0"
+            "version_requirement": ">=1.0.0 <3.0.0"
         },
         {
             "name": "puppetlabs/stdlib",
@@ -19,15 +19,15 @@
         },
         {
             "name": "puppetlabs/mysql",
-            "version_requirement": ">=6.0.0 <9.0.0"
+            "version_requirement": ">=3.0.0 <9.0.0"
         },
         {
             "name": "openstack/openstacklib",
-            "version_requirement": ">=14.4.0 <16.0.0"
+            "version_requirement": ">=8.0.0 <16.0.0"
         },
         {
             "name": "openstack/oslo",
-            "version_requirement": ">=10.0.0 <16.0.0"
+            "version_requirement": ">=5.0.0 <16.0.0"
         }
     ],
     "description": "Installs and configures OpenStack Keystone (Identity).",
