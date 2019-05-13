@@ -1,0 +1,59 @@
+  LoadModule auth_openidc_module modules/mod_auth_openidc.so
+  OIDCClaimPrefix "OIDC-"
+  OIDCResponseType "<%= scope['keystone::federation::openidc::openidc_response_type']-%>"
+  OIDCScope "openid email profile"
+  OIDCProviderMetadataURL "<%= scope['keystone::federation::openidc::openidc_provider_metadata_url']-%>"
+  OIDCClientID "<%= scope['keystone::federation::openidc::openidc_client_id']-%>"
+  OIDCClientSecret "<%= scope['keystone::federation::openidc::openidc_client_secret']-%>"
+  OIDCCryptoPassphrase "<%= scope['keystone::federation::openidc::openidc_crypto_passphrase']-%>"
+
+<%- if scope['::keystone::federation::openidc::openidc_cache_type'] != nil -%>
+  OIDCCacheType <%= scope['::keystone::federation::openidc::openidc_cache_type'] %>
+<%- end -%>
+<%- if scope['::keystone::federation::openidc::openidc_cache_shm_max'] != nil -%>
+  OIDCCacheShmMax scope['::keystone::federation::openidc::openidc_cache_shm_max'] %>
+<%- end -%>
+<%- if scope['::keystone::federation::openidc::openidc_cache_shm_entry_size'] != nil -%>
+  OIDCCacheShmEntrySize scope['::keystone::federation::openidc::openidc_cache_shm_entry_size'] %>
+<%- end -%>
+<%- if scope['::keystone::federation::openidc::openidc_cache_dir'] != nil -%>
+  OIDCCacheDir scope['::keystone::federation::openidc::openidc_cache_dir'] %>
+<%- end -%>
+<%- if scope['::keystone::federation::openidc::openidc_cache_clean_interval'] != nil -%>
+  OIDCCacheFileCleanInterval scope['::keystone::federation::openidc::openidc_cache_clean_interval'] %>
+<%- end -%>
+<%- if scope['::keystone::federation::openidc::memcached_servers_real'] -%>
+  OIDCMemCacheServers "<%= scope['::keystone::federation::openidc::memcached_servers_real'] %>"
+<%- end -%>
+<%- if scope['::keystone::federation::openidc::redis_server'] != nil -%>
+  OIDCRedisCacheServer "<%= scope['::keystone::federation::openidc::redis_server'] %>"
+<%- end -%>
+<%- if scope['::keystone::federation::openidc::redis_password'] != nil -%>
+  OIDCRedisCachecPassword scope['::keystone::federation::openidc::redis_password'] %>
+<%- end -%>
+
+  # The following directives are necessary to support websso from Horizon
+  # (Per https://docs.openstack.org/keystone/pike/advanced-topics/federation/websso.html)
+  OIDCRedirectURI "<%= @keystone_url_real -%>/v3/auth/OS-FEDERATION/identity_providers/<%= scope['keystone::federation::openidc::idp_name']-%>/protocols/openid/websso"
+  OIDCRedirectURI "<%= @keystone_url_real -%>/v3/auth/OS-FEDERATION/websso/openid"
+
+  <LocationMatch "/v3/auth/OS-FEDERATION/websso/openid">
+      AuthType "openid-connect"
+      Require valid-user
+  </LocationMatch>
+
+  <LocationMatch "/v3/auth/OS-FEDERATION/identity_providers/<%= scope['keystone::federation::openidc::idp_name']-%>/protocols/openid/websso">
+      AuthType "openid-connect"
+      Require valid-user
+  </LocationMatch>
+
+<%- if scope['::keystone::federation::openidc::openidc_enable_oauth'] -%>
+  OIDCOAuthClientID "<%= scope['keystone::federation::openidc::openidc_client_id']-%>"
+  OIDCOAuthClientSecret "<%= scope['keystone::federation::openidc::openidc_client_secret']-%>"
+  OIDCOAuthIntrospectionEndpoint "<%= scope['keystone::federation::openidc::openidc_introspection_endpoint']-%>"
+
+  <Location ~ "/v3/OS-FEDERATION/identity_providers/<%= scope['keystone::federation::openidc::idp_name']-%>/protocols/openid/auth">
+      AuthType oauth20
+      Require valid-user
+  </Location>
+<%- end -%>

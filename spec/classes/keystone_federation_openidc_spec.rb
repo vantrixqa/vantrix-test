@@ -1,0 +1,154 @@
+require 'spec_helper'
+
+describe 'keystone::federation::openidc' do
+
+  def get_param(type, title, param)
+    catalogue.resource(type, title).send(:parameters)[param.to_sym]
+  end
+
+  let(:pre_condition) do
+    <<-EOS
+    class { 'keystone':
+      admin_token => 'service_token',
+      public_endpoint => 'http://os.example.com:5000',
+      admin_endpoint => 'http://os.example.com:35357',
+    }
+
+    include keystone::wsgi::apache
+    EOS
+  end
+
+  let :params do
+    { :methods => 'password, token, openid',
+      :idp_name => 'myidp',
+      :openidc_provider_metadata_url => 'https://accounts.google.com/.well-known/openid-configuration',
+      :openidc_client_id => 'openid_client_id',
+      :openidc_client_secret => 'openid_client_secret',
+      :template_order => 331
+     }
+  end
+
+  context 'with invalid params' do
+    before do
+      params.merge!(:methods => 'external, password, token, oauth1, openid')
+      it_raises 'a Puppet::Error', /The external method should be dropped to avoid any interference with openid/
+    end
+
+    before do
+      params.merge!(:methods => 'password, token, oauth1')
+      it_raises 'a Puppet::Error', /Methods should contain openid as one of the auth methods./
+    end
+
+    before do
+      params.merge!(:template_port => 330)
+      it_raises 'a Puppet:Error', /The template order should be greater than 330 and less than 999./
+    end
+
+    before do
+      params.merge!(:template_port => 999)
+      it_raises 'a Puppet:Error', /The template order should be greater than 330 and less than 999./
+    end
+
+    before do
+      params.merge!(:openidc_enable_oauth => true)
+      it_raises 'a Puppet:Error', /You must set openidc_introspection_endpoint when enabling oauth support/
+    end
+  end
+
+  on_supported_os({
+  }).each do |os,facts|
+    let (:facts) do
+      facts.merge!(OSDefaults.get_facts({}))
+    end
+
+    let(:platform_parameters) do
+      case facts[:osfamily]
+      when 'Debian'
+        {
+          :openidc_package_name => 'libapache2-mod-auth-openidc',
+        }
+      when 'RedHat'
+        {
+          :openidc_package_name => 'mod_auth_openidc',
+        }
+      end
+    end
+
+    it { is_expected.to contain_package(platform_parameters[:openidc_package_name]) }
+
+    context 'with only required parameters' do
+      it 'should have basic params for openidc in Keystone configuration' do
+        is_expected.to contain_keystone_config('auth/methods').with_value('password, token, openid')
+        is_expected.to contain_keystone_config('auth/openid').with_ensure('absent')
+      end
+
+      it { is_expected.to contain_concat__fragment('configure_openidc_keystone').with({
+        :target => "10-keystone_wsgi.conf",
+        :order  => params[:template_order],
+      })}
+
+      it 'should contain expected config' do
+        content = get_param('concat::fragment', 'configure_openidc_keystone', 'content')
+        expect(content).to match('OIDCProviderMetadataURL "https://accounts.google.com/.well-known/openid-configuration"')
+        expect(content).to match('OIDCClientID "openid_client_id"')
+        expect(content).to match('OIDCClientSecret "openid_client_secret"')
+      end
+    end
+
+    context 'with oauth enabled' do
+      before do
+        params.merge!({
+          :openidc_enable_oauth => true,
+          :openidc_introspection_endpoint => 'http://example.com',
+        })
+      end
+
+      it 'should contain oauth config' do
+        content = get_param('concat::fragment', 'configure_openidc_keystone', 'content')
+        expect(content).to match('OIDCOAuthClientID "openid_client_id"')
+        expect(content).to match('OIDCOAuthClientSecret "openid_client_secret"')
+        expect(content).to match('OIDCOAuthIntrospectionEndpoint "http://example.com"')
+        expect(content).to match('/v3/OS-FEDERATION/identity_providers/myidp/protocols/openid/auth')
+      end
+    end
+
+    context 'with remote id attribute' do
+      before do
+        params.merge!({
+          :remote_id_attribute => 'myremoteid',
+        })
+      end
+
+      it 'should set remote id attribute in Keystone configuration' do
+        is_expected.to contain_keystone_config('openid/remote_id_attribute').with_value('myremoteid')
+      end
+
+    end
+
+    context 'with memcached_servers attribute' do
+      before do
+        params.merge!({
+          :memcached_servers => ['127.0.0.1:11211', '127.0.0.2:11211'],
+        })
+      end
+
+      it 'should contain memcache servers' do
+        content = get_param('concat::fragment', 'configure_openidc_keystone', 'content')
+        expect(content).to match('OIDCMemCacheServers "127.0.0.1:11211 127.0.0.2:11211"')
+      end
+    end
+
+    context 'with redis_server attribute' do
+      before do
+        params.merge!({
+          :redis_server => '127.0.0.1',
+        })
+      end
+
+      it 'should contain redis server' do
+        content = get_param('concat::fragment', 'configure_openidc_keystone', 'content')
+        expect(content).to match('OIDCRedisCacheServer "127.0.0.1"')
+      end
+    end
+  end
+end

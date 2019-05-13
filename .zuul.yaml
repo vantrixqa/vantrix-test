@@ -1,0 +1,26 @@
+- project:
+    templates:
+      - puppet-openstack-check-jobs
+      - puppet-openstack-module-unit-jobs
+      - puppet-openstack-integration-jobs-all
+      - puppet-openstack-beaker-jobs
+      - release-notes-jobs-python3
+    check:
+      jobs:
+        - puppet-keystone-tripleo-standalone
+    gate:
+      jobs:
+        - puppet-keystone-tripleo-standalone
+
+- job:
+    name: puppet-keystone-tripleo-standalone
+    parent: tripleo-puppet-ci-centos-7-standalone
+    description: |
+      TripleO standalone Job running Identity specific Tempest tests.
+    vars:
+      featureset_override:
+        run_tempest: false
+        tempest_test_whitelist:
+          - 'identity'
+          - 'keystone-tempest-plugin'
+        use_os_tempest: true
